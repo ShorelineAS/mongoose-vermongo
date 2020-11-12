@@ -1,20 +1,18 @@
 import 'mocha';
 import { assert } from 'chai'
 import vermongo = require('../src/index');
-import * as Bluebird from 'bluebird';
 import * as mongoose from 'mongoose';
-declare module 'mongoose' {
-  type Promise<T> = Bluebird<T>;
-}
-(<any>mongoose).Promise = Bluebird;
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
+let mongoServer;
 let pageSchema = new mongoose.Schema({
   title : { type : String, required : true},
   content : { type : String, required : true },
   path : { type : String, required : true},
   tags : [String],
   lastModified : Date,
-  created : Date
+  created : Date,
+  companyId: mongoose.Schema.Types.ObjectId
 });
 
 interface IPage extends mongoose.Document {
@@ -23,7 +21,10 @@ interface IPage extends mongoose.Document {
   path: string,
   tages: string[],
   lastModified?: number,
-  created?: number
+  created?: number,
+  companyId?: mongoose.Types.ObjectId,
+  _changedAt?: Date,
+  _changedBy?: mongoose.Types.ObjectId
 }
 
 let pageVermongoSchema = new mongoose.Schema({
@@ -37,7 +38,10 @@ let pageVermongoSchema = new mongoose.Schema({
   path : String,
   tags : [String],
   lastModified : Date,
-  created : Date
+  created : Date,
+  _changedAt: Date,
+  _changedBy: mongoose.Schema.Types.ObjectId,
+  companyId: mongoose.Schema.Types.ObjectId,
 });
 
 interface IPageVermongo extends mongoose.Document {
@@ -51,7 +55,10 @@ interface IPageVermongo extends mongoose.Document {
   path?: string,
   tages?: string[],
   lastModified?: number,
-  created?: number
+  created?: number,
+  _changedAt: Date,
+  _changedBy?: mongoose.Schema.Types.ObjectId,
+  companyId?: mongoose.Schema.Types.ObjectId,
 }
 
 // Test suite
@@ -60,15 +67,14 @@ describe('vermongo tests', () => {
   let PageVermongo: mongoose.Model<IPageVermongo>;
 
   // Connect to mongodb before running tests
-  before((done) => {
-    pageSchema.plugin(vermongo, "pageschemas.vermongo");
+  before(async () => {
+    pageSchema.plugin<any>(vermongo, 'pageschemas.vermongo');
     Page = mongoose.model<IPage>('pageschema', pageSchema);
     PageVermongo = mongoose.model<IPageVermongo>('pageschemas.vermongo');
 
-    mongoose.connect('mongodb://localhost/mongotest');
-    mongoose.connection.on('connected', () => {
-      done();
-    });
+    mongoServer = new MongoMemoryServer();
+    const mongoUri = await mongoServer.getUri();
+    await mongoose.connect(mongoUri, {});
   })
 
   it('creating an entry should not create a vermongo entry', (done) => {
@@ -88,7 +94,10 @@ describe('vermongo tests', () => {
 
   it('updating an entry should create a vermongo entry', (done) => {
     let pageID: mongoose.Types.ObjectId;
-    let page = new Page({ title: "foo", content: "bar", path: "baz", tags: ["a", "b", "c"] });
+    let changedId = mongoose.Types.ObjectId();
+    let companyId = mongoose.Types.ObjectId();
+    let page = new Page({ title: "foo", content: "bar", path: "baz", tags: ["a", "b", "c"], companyId });
+
     page.save()
       .then((page) => {
         pageID = page._id;
@@ -103,9 +112,47 @@ describe('vermongo tests', () => {
         assert(result[0].title === "foo", "expecting a vermongo entry on update");
         assert(result[0].content === "bar", "expecting a vermongo entry on update");
         assert(result[0].path === "baz", "expecting a vermongo entry on update");
+        assert(result[0]._changedAt, "expecting a vermongo entry on update");
+        assert(!result[0]._changedBy, "expecting a vermongo entry to not have _changedBy field");
+        assert(result[0].companyId.toString() === companyId.toString(), "expecting a vermongo entry to have companyId field");
         assert(result[0]._version === 1, "expecting a vermongo entry on update");
         assert(result[0]._id._version === 1, "expecting a vermongo entry on update");
         assert(pageID.equals(result[0]._id._id), "expecting a vermongo entry on update");
+      })
+      .then(() => {
+        return Page.findOne({});
+      })
+      .then((page) => {
+        page._changedBy = changedId;
+        return page.save();
+      })
+      .then(()=> {
+        return PageVermongo.find({});
+      })
+      .then((result) => {
+        assert(result.length === 2, "expecting a vermongo entry on update");
+        assert(!result[0]._changedBy, "expecting a vermongo entry to not have _changedBy field");
+        assert(result[1]._changedBy.toString() === changedId.toString(), "expecting a vermongo entry to have _changedBy field");
+      })
+      .then(async () => {
+        const pages = await Page.find({});
+        for (const page of pages) {
+          page._changedBy = changedId;
+          await page.remove();
+        }
+      })
+      .then(()=> {
+        return PageVermongo.find({});
+      })
+      .then((result) => {
+        console.log(result);
+        assert(result.length === 6, "expecting a vermongo entry on delete");
+        assert(result[3]._version === -1, "expecting a vermongo entry to have -1 version");
+        assert(!result[3].companyId, "expecting a vermongo entry to not have companyId");
+        assert(result[3]._changedBy.toString() === changedId.toString(), "expecting a vermongo entry to have _changedBy");
+        assert(result[5]._version === -1, "expecting a vermongo entry to have -1 version");
+        assert(result[5].companyId.toString() === companyId.toString(), "expecting a vermongo entry to not have companyId");
+        assert(result[5]._changedBy.toString() === changedId.toString(), "expecting a vermongo entry to have _changedBy");
         done();
       })
       .catch((e) => {
@@ -114,14 +161,9 @@ describe('vermongo tests', () => {
   });
 
   // Not particularly useful for travis but important for local dev
-  after((done) => {
-    mongoose.connection.db.dropDatabase()
-      .then(() => {
-        done();
-      })
-      .catch((e) => {
-        done(e);
-      })
+  after(async () => {
+    await mongoose.disconnect();
+    await mongoServer.stop();
   })
 
 });
