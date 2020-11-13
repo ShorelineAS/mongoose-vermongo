@@ -24,10 +24,10 @@
   "contributors": [
     "Murat Sutunc <murat@codela.net>"
   ],
-  "homepage": "https://github.com/TheCodela/mongoose-vermongo",
+  "homepage": "https://github.com/ShorelineAS/mongoose-vermongo",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TheCodela/mongoose-vermongo.git"
+    "url": "https://github.com/ShorelineAS/mongoose-vermongo.git"
   },
   "author": "Codela",
   "license": "MIT",
@@ -40,7 +40,9 @@
     "mocha": "^3.2.0",
     "mongodb-memory-server": "^6.9.2",
     "mongoose": "^5.3.2",
-    "ts-node": "^9.0.0",
+    "ts-node": "^9.0.0"
+  },
+  "dependencies": {
     "typescript": "^4.0.5"
   }
 }
