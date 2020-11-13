@@ -9,7 +9,7 @@
     "br": "npm run build && npm run run",
     "prepublish": "npm run build",
     "test": "mocha -r ts-node/register test/**/test.ts",
-    "prepare": "npm run build"
+    "postinstall": "npm run build"
   },
   "keywords": [
     "mongo",
