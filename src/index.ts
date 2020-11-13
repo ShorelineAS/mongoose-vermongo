@@ -8,6 +8,9 @@ interface PluginOptions {
 
 const VERSION: string = "_version";
 const ID: string = "_id";
+const CHANGED_BY: string = "_changedBy";
+const CHANGED_AT: string = "_changedAt";
+const COMPANY_ID: string = "companyId";
 
 export = function (schema: Mongoose.Schema, options: PluginOptions) {
   if (typeof(options) == 'string') {
@@ -16,7 +19,7 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
     }
   }
 
-  options = options || {};
+  options = options || {} as PluginOptions;
   options.collection = options.collection || 'versions';
   options.logError = options.logError || false;
   options.mongoose = options.mongoose || require('mongoose');
@@ -30,19 +33,19 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
   let mongoose = options.mongoose;
 
   // Copy schema options
-  for (var key in options) {
-    if (options.hasOwnProperty(key)) {
-      vermongoSchema.set(key, options[key]);
-    }
+  for (const [key, value] of Object.entries(options) as [any, any][]) {
+    vermongoSchema.set(key, value);
   }
 
   // Add Custom fields
   schema.add({
-    _version: { type: Number, required: true, default: 0, select: true }
+    [VERSION]: { type: Number, required: true, default: 0, select: true }
   });
   vermongoSchema.add({
-    _id: mongoose.Schema.Types.Mixed,
-    _version: { type: Number, required: true, default: 0, select: true }
+    [ID]: mongoose.Schema.Types.Mixed,
+    [VERSION]: { type: Number, required: true, default: 0, select: true },
+    [CHANGED_BY]: mongoose.Schema.Types.ObjectId,
+    [CHANGED_AT]: { type: Date, default: new Date() },
   });
 
   // Turn off internal versioning, we don't need this since we version on everything
@@ -57,6 +60,7 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
     if (this.isNew) {
       // console.log('[new]');
       this[VERSION] = 1;
+      delete this[CHANGED_BY];
       return next();
     }
     let baseVersion = this[VERSION];
@@ -83,6 +87,7 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
 
         // Build Vermongo historical ID
         clone[ID] = { [ID]: this[ID], [VERSION]: this[VERSION] };
+        clone[CHANGED_BY] = this[CHANGED_BY];
 
         // Increment version number
         this[VERSION] = this[VERSION] + 1;
@@ -92,6 +97,7 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
       })
       .then(() => {
           // console.log('[saved]');
+          delete this[CHANGED_BY];
           next();
           return null;
       })
@@ -107,6 +113,7 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
   schema.pre('remove', function(next) {
     var clone = this.toObject();
     clone[ID] = { [ID]: this[ID], [VERSION]: this[VERSION]};
+    clone[CHANGED_BY] = this[CHANGED_BY];
 
     new schema.statics.VersionedModel(clone)
       .save()
@@ -114,13 +121,19 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
         this[VERSION]++;
         let deletedClone = {
           [ID]: { [ID]: this[ID], [VERSION]: this[VERSION] },
-          [VERSION]: -1
+          [VERSION]: -1,
+          [CHANGED_BY]: this[CHANGED_BY],
         }
+        if (this[COMPANY_ID]) {
+          deletedClone[COMPANY_ID] = this[COMPANY_ID];
+        }
+
         return new schema.statics.VersionedModel(deletedClone)
           .save();
       })
       .then(() => {
         // console.log('[removed]');
+        delete this[CHANGED_BY];
         next();
         return null;
       })
