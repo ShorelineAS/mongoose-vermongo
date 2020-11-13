@@ -145,7 +145,6 @@ describe('vermongo tests', () => {
         return PageVermongo.find({});
       })
       .then((result) => {
-        console.log(result);
         assert(result.length === 6, "expecting a vermongo entry on delete");
         assert(result[3]._version === -1, "expecting a vermongo entry to have -1 version");
         assert(!result[3].companyId, "expecting a vermongo entry to not have companyId");

@@ -7,7 +7,7 @@
     "build": "tsc",
     "run": "node dist/index.js",
     "br": "npm run build && npm run run",
-    "prepublish": "npm run test && npm run build",
+    "prepublish": "npm run build",
     "test": "mocha -r ts-node/register test/**/test.ts"
   },
   "keywords": [
