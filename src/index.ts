@@ -45,7 +45,7 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
     [ID]: mongoose.Schema.Types.Mixed,
     [VERSION]: { type: Number, required: true, default: 0, select: true },
     [CHANGED_BY]: mongoose.Schema.Types.ObjectId,
-    [CHANGED_AT]: { type: Date, default: new Date() },
+    [CHANGED_AT]: { type: Date, default: Date.now },
   });
 
   // Turn off internal versioning, we don't need this since we version on everything
