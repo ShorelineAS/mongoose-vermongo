@@ -54,7 +54,7 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
 
 
   // Add reference to model to original schema
-  schema.statics.VersionedModel = mongoose.model(options.collection, vermongoSchema);
+  (schema.statics as any).VersionedModel = mongoose.model(options.collection, vermongoSchema);
 
   schema.pre('save', function(next) {
     if (this.isNew) {
@@ -92,7 +92,7 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
         // Increment version number
         this[VERSION] = this[VERSION] + 1;
 
-        return new schema.statics.VersionedModel(clone)
+        return new (schema.statics as any).VersionedModel(clone)
           .save();
       })
       .then(() => {
@@ -115,7 +115,7 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
     clone[ID] = { [ID]: this[ID], [VERSION]: this[VERSION]};
     clone[CHANGED_BY] = this[CHANGED_BY];
 
-    new schema.statics.VersionedModel(clone)
+    new (schema.statics as any).VersionedModel(clone)
       .save()
       .then(() => {
         this[VERSION]++;
@@ -128,7 +128,7 @@ export = function (schema: Mongoose.Schema, options: PluginOptions) {
           deletedClone[COMPANY_ID] = this[COMPANY_ID];
         }
 
-        return new schema.statics.VersionedModel(deletedClone)
+        return new (schema.statics as any).VersionedModel(deletedClone)
           .save();
       })
       .then(() => {

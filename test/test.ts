@@ -1,8 +1,8 @@
+import { assert } from 'chai';
 import 'mocha';
-import { assert } from 'chai'
-import vermongo = require('../src/index');
-import * as mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import * as mongoose from 'mongoose';
+import vermongo = require('../src/index');
 
 let mongoServer;
 let pageSchema = new mongoose.Schema({
@@ -68,7 +68,7 @@ describe('vermongo tests', () => {
 
   // Connect to mongodb before running tests
   before(async () => {
-    pageSchema.plugin<any>(vermongo, 'pageschemas.vermongo');
+    pageSchema.plugin(vermongo, 'pageschemas.vermongo');
     Page = mongoose.model<IPage>('pageschema', pageSchema);
     PageVermongo = mongoose.model<IPageVermongo>('pageschemas.vermongo');
 
